@@ -1,10 +1,11 @@
 import express from 'express';
 import mysql2 from 'mysql2';
-import bodyParser from 'body-parser';
+import  Jwt  from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import cors from 'cors'
 
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(cors);
 
 
@@ -23,50 +24,64 @@ db.connect((error) => {
     }
 });
 
-// // Sign-up endpoint
-// app.post('/signup', async (req, res) => {
-//     const { username,email, password, role } = req.body;
 
-//     // Hash the password 
-//     const hashedPassword = await bcrypt.hash(password, 10);
+app.post('/signup',async (req, res)=>{
+    const {username,email,password}=req.body;
 
-//     //  user db
-//     const insertUserQuery = 'INSERT INTO users (username, password, role) VALUES (?, ?, ?)';    
-//     db.query(insertUserQuery, [email, hashedPassword, role], (error, results) => {
-//         if (error) {
-//             console.error('Error signing up:', error);
-//             res.status(500).json({ message: 'Error signing up' });
-//         } else {
-//             res.status(201).json({ message: 'User signed up successfully' });
-//         }
-//     });
-// });
+    const hashedPassword=await bcrypt.hash(password,10);
 
-app.post('')
-
-// Sign-in endpoint
-app.post('/signin', async (req, res) => {
-    const { email, password } = req.body;
-
-    // get  user  db
-    const getUserQuery = 'SELECT * FROM users WHERE email = ?';
-    db.query(getUserQuery, [email], async (error, results) => {
-        if (error) {
-            console.error('Error signing in:', error);
-            res.status(500).json({ message: 'Error signing in' });
-        } else if (results.length === 0) {
-            res.status(401).json({ message: 'Invalid username or password' });
-        } else {
-        //pw compare
-            const match = await bcrypt.compare(password, results[0].password);
-            if (match) {
-                res.json({ message: 'User signed in successfully' });
-            } else {
-                res.status(401).json({ message: 'Invalid username or password' });
+   db.query(
+    'INSERT INTO user (username, password, email ,role) VALUES (?, ?, ? ,?)',
+    [username, hashedPassword,email],
+    (err,result)=>{
+        if (err){
+            if(err){
+                console.error('error inserting into db',err);
+                res.status(500).json({error:'internal srever error'});
+            }
+            else{
+                console.log('Data inserted in db',result);
+                res.json('successfully registered');
             }
         }
-    });
-});
+    }
+   )
+})
+
+
+
+app.post('/signup', async (req,res)=>{
+    res.json({
+        message:'API is working'
+    })
+    const {email, password}=req.body;
+    db.query(
+        'SELECT * FROM user WHERE email =?,'[email],
+        async(err,result)=>{
+            if (err){
+                console.error('erroe in query data in db',err);
+                res.status(500).jason({error:'Internal server error'});
+            }
+            else {
+                if(result.length>0){
+                    const user =result[0];
+                    const passwordmatch=await bcrypt.compare(password,user.passwword);
+                    if(passwordmatch){
+                        const token =Jwt.sign({id:user.id,email:user.email}, process.env.JWT_SECRET,{
+                            expiresIn:'1h'
+                        } );
+                        res.json({message:'Login successhul',token,email:user.email});
+                        console.log('Data retrieved form db',user);
+                    }
+                    else{
+                        res.status(401).json({error:'Invalid username or password'});
+                    }
+                }
+            }
+        }
+    )
+
+})
 
 app.listen(3000, () => {
     console.log("Server running on port 3000!");
