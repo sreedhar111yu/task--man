@@ -15,6 +15,7 @@ const connection = await mysql.createConnection({
 // Route for user signup
 app.post('/signup', async (req, res) => {
     const { username, password, email } = req.body;
+    console.log(req.body)
 
     try {
         // Hash the password
